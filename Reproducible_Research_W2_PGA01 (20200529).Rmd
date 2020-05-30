@@ -1,0 +1,286 @@
+---
+title: "Activity Data - Reproducible Research W2 - PGA 01"
+author: "Pranav Lohokare"
+date: "May 29, 2020"
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br />  <!-- Adding a new line -->  
+
+## Introduction
+
+Coursera - Reproducible Research - Week 2 - Peer Graded Assignment Report.
+
+Study analyzes human activity.
+
+<br />  <!-- Adding a new line --> 
+
+## Import data
+
+```{r 01_import_data, echo = TRUE}
+
+if (!file.exists("./activity.csv")) {
+
+  # Download data file
+  file_url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+  file_name <- "activity.zip"
+
+  download.file(file_url, file_name, method = "curl")
+
+
+  # unzip file
+  unzip(file_name)
+
+} 
+
+```
+
+<br />  <!-- Adding a new line -->  
+
+Read base data into 'z_Data_All'.
+
+```{r read_data_01, echo = TRUE}
+
+z_Data_All <- read.csv("./activity.csv", header = TRUE)
+head(z_Data_All)
+str(z_Data_All)
+
+```
+
+<br />  <!-- Adding a new line -->
+
+Convert data types -
+
+```{r data_cleaning_01, echo = TRUE}
+
+d_Activity_Data <- z_Data_All
+
+d_Activity_Data$date <- as.Date(d_Activity_Data$date)
+d_Activity_Data$interval <- as.factor(d_Activity_Data$interval)
+
+str(d_Activity_Data)
+
+```
+
+<br />  <!-- Adding a new line -->
+
+# Assignment tasks -
+
+<br />  <!-- Adding a new line -->
+
+## Task 1: What is mean total number of steps taken per day?
+For this part of the assignment, you can ignore the missing values in the dataset.  
+
+1. Calculate the total number of steps taken per day
+2. Make a histogram of the total number of steps taken each day
+3. Calculate and report the mean and median of the total number of steps taken per day
+
+```{r assign_task_01_01, echo = TRUE}
+
+## Total number of steps taken per day
+d_Steps_Per_Day <- aggregate(
+  d_Activity_Data$steps,
+  by = list(d_Activity_Data$date),
+  FUN = sum,
+  na.rm = TRUE
+)
+
+names(d_Steps_Per_Day) <- c("date", "total_steps")
+
+head(d_Steps_Per_Day)
+
+```
+
+```{r assign_task_01_02, echo = TRUE}
+
+## Histogram of total number of steps taken each day
+
+hist(d_Steps_Per_Day$total_steps,
+     main = "Number of Days by Number of steps",
+     ylim = c(0, 20),
+     xlab = "# of Steps",
+     ylab = "# of Days",
+     breaks = seq(0, 25000, by = 2500),
+     col = "steelblue"
+     )
+
+s_Mean_Steps_Per_Day <- format(round(mean(d_Steps_Per_Day$total_steps)), big.mark = ",")
+s_Median_Steps_Per_Day <- format(round(median(d_Steps_Per_Day$total_steps)), big.mark = ",")
+
+```
+
+Average number of total steps per day = `r s_Mean_Steps_Per_Day`.
+<br />  <!-- Adding a new line -->
+
+Median number of total steps per day = `r s_Median_Steps_Per_Day`.
+<br />  <!-- Adding a new line -->
+
+## Task 2: What is the average daily activity pattern?
+For this part of the assignment, you can ignore the missing values in the dataset.  
+
+1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r assign_task_02, echo = TRUE}
+
+## Average number of steps taken per interval
+d_Avg_Steps_Per_Interval <- aggregate(
+  d_Activity_Data$steps,
+  by = list(d_Activity_Data$interval),
+  FUN = mean,
+  na.rm = TRUE
+)
+
+names(d_Avg_Steps_Per_Interval) <- c("interval", "avg_steps")
+
+## Plot - Avg steps vs. Interval
+plot(d_Avg_Steps_Per_Interval$interval,
+     d_Avg_Steps_Per_Interval$avg_steps,
+     type = "l",
+     col = "steelblue",
+     lwd = 2,
+     xlab = "Interval",
+     ylab = "Avg # of Steps",
+     main = "Average number of Steps by Interval"
+     )
+
+```
+
+Averagely across days, highest number of steps are observed during interval `r d_Avg_Steps_Per_Interval[which.max(d_Avg_Steps_Per_Interval$avg_steps), "interval"]`.
+
+
+## Task 3: Imputing missing values
+For this part of the assignment, you can ignore the missing values in the dataset.  
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+3. Create a new dataset that is equal to the original dataset but with the missing data treated appropriately.
+4. Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r assign_task_03_01, echo = TRUE}
+
+## Number of missing values (rows)
+sum(is.na(d_Activity_Data$steps))
+
+```
+
+Missing values will be replaced by avearge number of steps observed during intervals across days (ignoring the missing values).
+
+```{r assign_task_03_02, echo = TRUE}
+
+## Number of missing values (rows)
+d_Activity_Data_v2 <- merge(
+  x = d_Activity_Data,
+  y = d_Avg_Steps_Per_Interval,
+  by.x = "interval",
+  by.y = "interval"
+)
+
+d_Activity_Data_v2 <- d_Activity_Data_v2[order(d_Activity_Data_v2$date, d_Activity_Data_v2$interval), ]
+rownames(d_Activity_Data_v2) <- 1:nrow(d_Activity_Data_v2)
+
+head(d_Activity_Data_v2)
+
+## Replace missing steps for intervals with averages across days
+d_Activity_Data_v2$steps_v2 <- ifelse(
+  is.na(d_Activity_Data_v2$steps),
+  d_Activity_Data_v2$avg_steps,
+  d_Activity_Data_v2$steps
+)
+
+head(d_Activity_Data_v2)
+
+```
+
+```{r assign_task_03_03, echo = TRUE}
+
+library(scales)
+
+## Total number of steps taken per day with missing value treatment
+d_Steps_Per_Day_v2 <- aggregate(
+  d_Activity_Data_v2$steps_v2,
+  by = list(d_Activity_Data_v2$date),
+  FUN = sum,
+  na.rm = TRUE
+)
+
+names(d_Steps_Per_Day_v2) <- c("date", "total_steps")
+
+
+## Histogram of total number of steps taken each day with missing value treatment
+hist(d_Steps_Per_Day_v2$total_steps,
+     main = "Number of Days by Number of steps",
+     ylim = c(0, 20),
+     xlab = "# of Steps",
+     ylab = "# of Days",
+     breaks = seq(0, 25000, by = 2500),
+     col = "steelblue"
+     )
+
+## Calculate stats
+s_Mean_Steps_Per_Day_v2 <- format(round(mean(d_Steps_Per_Day_v2$total_steps)), big.mark = ",")
+s_Median_Steps_Per_Day_v2 <- format(round(median(d_Steps_Per_Day_v2$total_steps)), big.mark = ",")
+
+## Calculate difference - with vs without missing value treatment
+s_Diff_Mean <- percent((mean(d_Steps_Per_Day_v2$total_steps)/mean(d_Steps_Per_Day$total_steps)) - 1)
+s_Diff_Median <- percent((median(d_Steps_Per_Day_v2$total_steps)/median(d_Steps_Per_Day$total_steps)) - 1)
+
+```
+
+Post missing value treatment,
+
+* Average number of total steps per day = `r s_Mean_Steps_Per_Day_v2` - this is increased by `r s_Diff_Mean` when compared with the dataset that ignored the missing values.
+* Median number of total steps per day = `r s_Median_Steps_Per_Day_v2` - this is increased by `r s_Diff_Median` when compared with the dataset that ignored the missing values.
+
+
+## Task 4: Are there differences in activity patterns between weekdays and weekends?
+Use the dataset with the filled-in missing values for this part.
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+```{r assign_task_04_01, echo = TRUE}
+
+library(timeDate)
+library(ggplot2)
+
+## Add flag weekday / weekend against all dates
+d_Activity_Data_v2$day_type <- as.factor(ifelse(isWeekday(d_Activity_Data_v2$date, wday = 1:5), "Weekday", "Weekend"))
+
+str(d_Activity_Data_v2)
+
+
+## Aggregate average number of steps (missing value treated) at interval - day type level
+d_Avg_Steps_Per_Interval_Day_Type_v2 <- aggregate(
+  d_Activity_Data_v2$steps_v2,
+  by = list(d_Activity_Data_v2$interval, d_Activity_Data_v2$day_type),
+  FUN = mean,
+  na.rm = TRUE
+)
+
+names(d_Avg_Steps_Per_Interval_Day_Type_v2) <- c("interval", "day_type", "avg_steps")
+
+head(d_Avg_Steps_Per_Interval_Day_Type_v2)
+
+
+## Plot average steps by interval split by day_type
+plot_01 <- ggplot(d_Avg_Steps_Per_Interval_Day_Type_v2, aes(x = interval, y = avg_steps, color = day_type, group = day_type)) +
+           geom_line() +
+           labs(title = "Average steps by Interval - split by day type", x = "Interval", y = "Avg # of Steps") +
+           facet_wrap(~day_type, ncol = 1, nrow = 2)
+
+print(plot_01)
+
+```
+
+
+
+
+
+
